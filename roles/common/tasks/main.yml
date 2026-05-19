@@ -1,0 +1,59 @@
+---
+# ============================================
+# Role: common
+# Applies to: all hosts
+# Purpose: Base server configuration
+# ============================================
+
+# --- Update apt cache ---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: packages
+
+# --- Install common packages ---
+- name: Install common packages
+  apt:
+    name: "{{ common_packages }}"
+    state: present
+  tags: packages
+
+# --- Create devops user with sudo ---
+- name: Create devops user with sudo privileges
+  user:
+    name: "{{ devops_user }}"
+    shell: "{{ devops_shell }}"
+    groups: sudo
+    append: yes
+    create_home: yes
+    state: present
+  tags: users
+
+- name: Allow devops user passwordless sudo
+  copy:
+    content: "{{ devops_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    dest: "/etc/sudoers.d/{{ devops_user }}"
+    mode: "0440"
+    validate: "visudo -cf %s"
+  tags: users
+
+# --- Set hostname ---
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+  tags: system
+
+# --- Set timezone ---
+- name: Set timezone to {{ server_timezone }}
+  timezone:
+    name: "{{ server_timezone }}"
+  tags: system
+
+# --- Ensure NTP is installed and running ---
+- name: Install and enable systemd-timesyncd
+  systemd:
+    name: systemd-timesyncd
+    state: started
+    enabled: yes
+  tags: system

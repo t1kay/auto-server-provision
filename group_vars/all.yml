@@ -1,0 +1,25 @@
+---
+# ============================================
+# Global variables for all hosts
+# ============================================
+
+# --- User Configuration ---
+devops_user: devops
+devops_shell: /bin/bash
+
+# --- System Configuration ---
+server_timezone: Asia/Ho_Chi_Minh
+
+# --- Common packages (installed on ALL nodes) ---
+common_packages:
+  - vim
+  - curl
+  - wget
+  - htop
+  - git
+  - net-tools
+  - unzip
+
+# --- Web server packages (installed on webservers group) ---
+web_packages:
+  - nginx

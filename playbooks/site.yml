@@ -1,0 +1,43 @@
+---
+# ============================================
+# Main playbook: site.yml
+# Provisions all servers in the inventory
+# ============================================
+
+# --- Apply common configuration to ALL hosts ---
+- name: Apply common configuration to all servers
+  hosts: all
+  become: true
+  roles:
+    - common
+
+# --- Configure web servers ---
+- name: Configure web servers
+  hosts: webservers
+  become: true
+  tasks:
+    - name: Install web server packages
+      apt:
+        name: "{{ web_packages }}"
+        state: present
+      tags: web
+
+    - name: Ensure nginx is started and enabled
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      tags: web
+
+    - name: Verify nginx is responding
+      uri:
+        url: "http://localhost"
+        status_code: 200
+      register: nginx_result
+      ignore_errors: yes
+      tags: web
+
+    - name: Display nginx status
+      debug:
+        msg: "Nginx is {{ 'UP' if nginx_result.status == 200 else 'DOWN' }} on {{ inventory_hostname }}"
+      tags: web
