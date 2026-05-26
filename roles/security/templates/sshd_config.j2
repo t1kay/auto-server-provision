@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+# ============================================
+# SSH Server Configuration
+# Managed by Ansible — DO NOT EDIT MANUALLY
+# ============================================
+
+# --- Network ---
+Port {{ ssh_port }}
+AddressFamily any
+ListenAddress 0.0.0.0
+
+# --- Authentication ---
+PermitRootLogin {{ ssh_permit_root_login }}
+PubkeyAuthentication {{ ssh_pubkey_authentication }}
+PasswordAuthentication {{ ssh_password_authentication }}
+MaxAuthTries {{ ssh_max_auth_tries }}
+LoginGraceTime {{ ssh_login_grace_time }}
+
+# --- Security ---
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+X11Forwarding {{ ssh_x11_forwarding }}
+UsePAM yes
+
+# --- Logging ---
+SyslogFacility AUTH
+LogLevel INFO
+
+# --- Misc ---
+PrintMotd no
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/openssh/sftp-server

@@ -11,6 +11,14 @@
   roles:
     - common
 
+# --- Apply security hardening to ALL hosts ---
+- name: Apply security hardening to all servers
+  hosts: all
+  become: true
+  roles:
+    - security
+  tags: security
+
 # --- Configure web servers ---
 - name: Configure web servers
   hosts: webservers
