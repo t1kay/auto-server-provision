@@ -70,7 +70,7 @@
 - name: Configure fail2ban jail.local
   copy:
     content: |
-      # {{ ansible_managed }}
+      # Managed by Ansible — DO NOT EDIT MANUALLY
       # Fail2ban local configuration
       [DEFAULT]
       bantime  = {{ fail2ban_bantime }}
