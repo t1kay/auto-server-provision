@@ -3,6 +3,12 @@
 # Main playbook: site.yml
 # Provisions all servers in the inventory
 # ============================================
+# Usage:
+#   ansible-playbook playbooks/site.yml                              (default inventory)
+#   ansible-playbook -i inventories/dev/hosts.ini playbooks/site.yml (dev)
+#   ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml (prod)
+#   ansible-playbook playbooks/site.yml --check --diff               (dry run)
+# ============================================
 
 # --- Apply common configuration to ALL hosts ---
 - name: Apply common configuration to all servers
@@ -30,22 +36,30 @@
         state: present
       tags: web
 
-    - name: Ensure nginx is started and enabled
-      service:
-        name: nginx
-        state: started
-        enabled: yes
-      tags: web
-
     - name: Verify nginx is responding
       uri:
-        url: "http://localhost"
+        url: "http://localhost:{{ nginx_port | default(80) }}"
         status_code: 200
       register: nginx_result
       ignore_errors: yes
-      tags: web
+      tags: web, verify
 
     - name: Display nginx status
       debug:
-        msg: "Nginx is {{ 'UP' if nginx_result.status == 200 else 'DOWN' }} on {{ inventory_hostname }}"
-      tags: web
+        msg: >
+          Nginx is {{ 'UP' if nginx_result.status == 200 else 'DOWN' }}
+          on {{ inventory_hostname }} (port {{ nginx_port | default(80) }},
+          env={{ env | default('unknown') }})
+      tags: web, verify
+
+    - name: Display environment info
+      debug:
+        msg: |
+          === Server Info ===
+          Host:        {{ inventory_hostname }}
+          Environment: {{ env | default('unknown') }}
+          Nginx Port:  {{ nginx_port | default(80) }}
+          Server Name: {{ nginx_server_name | default('_') }}
+          Gzip:        {{ nginx_enable_gzip | default(false) }}
+          Rate Limit:  {{ nginx_enable_rate_limit | default(false) }}
+      tags: info

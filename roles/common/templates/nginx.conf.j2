@@ -2,26 +2,113 @@
 # ============================================
 # Nginx Server Configuration
 # Managed by Ansible — DO NOT EDIT MANUALLY
+# Environment: {{ env | default('unknown') }}
 # ============================================
 
-server {
-    listen {{ nginx_port | default(80) }};
-    server_name {{ server_name | default('_') }};
+# --- Worker Processes ---
+worker_processes {{ nginx_worker_processes | default('auto') }};
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
 
-    root {{ nginx_root | default('/var/www/html') }};
-    index index.html index.htm;
+events {
+    worker_connections {{ nginx_worker_connections | default(768) }};
+}
+
+http {
+    # --- Basic Settings ---
+    sendfile on;
+    tcp_nopush on;
+    types_hash_max_size 2048;
+    server_tokens off;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
 
     # --- Logging ---
-    access_log /var/log/nginx/{{ inventory_hostname }}_access.log;
-    error_log  /var/log/nginx/{{ inventory_hostname }}_error.log;
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
 
-    # --- Default location ---
-    location / {
-        try_files $uri $uri/ =404;
+{% if nginx_enable_gzip | default(false) %}
+    # --- Gzip Compression (Enabled) ---
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml
+        application/rss+xml
+        image/svg+xml;
+{% else %}
+    # --- Gzip Compression (Disabled) ---
+    gzip off;
+{% endif %}
+
+{% if nginx_enable_rate_limit | default(false) %}
+    # --- Rate Limiting ---
+    limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
+    limit_req_zone $binary_remote_addr zone=login:10m rate=1r/s;
+{% endif %}
+
+{% if nginx_upstream_servers | default([]) | length > 0 %}
+    # --- Upstream Backend Servers ---
+    upstream app_backend {
+{% for server in nginx_upstream_servers %}
+        server {{ server }};
+{% endfor %}
     }
+{% endif %}
 
-    # --- Security headers ---
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
+    # --- Virtual Host ---
+    server {
+        listen {{ nginx_port | default(80) }};
+        server_name {{ nginx_server_name | default('_') }};
+
+        root {{ nginx_root | default('/var/www/html') }};
+        index index.html index.htm;
+
+        # --- Per-host Logging ---
+        access_log /var/log/nginx/{{ inventory_hostname }}_access.log;
+        error_log  /var/log/nginx/{{ inventory_hostname }}_error.log;
+
+{% if nginx_enable_rate_limit | default(false) %}
+        # --- Apply Rate Limiting ---
+        limit_req zone=general burst=20 nodelay;
+{% endif %}
+
+        # --- Default Location ---
+        location / {
+            try_files $uri $uri/ =404;
+        }
+
+{% if nginx_upstream_servers | default([]) | length > 0 %}
+        # --- Proxy to Backend ---
+        location /api/ {
+            proxy_pass http://app_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+{% endif %}
+
+        # --- Security Headers ---
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+{% if nginx_enable_ssl | default(false) %}
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+{% endif %}
+
+{% for header in nginx_custom_headers | default([]) %}
+        add_header {{ header.split(':')[0] | trim }} "{{ header.split(':')[1] | trim }}" always;
+{% endfor %}
+    }
 }

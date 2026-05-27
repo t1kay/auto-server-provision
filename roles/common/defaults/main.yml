@@ -1,0 +1,23 @@
+---
+# ============================================
+# Role: common — Default variables
+# Override these in group_vars or host_vars
+# ============================================
+
+# --- Nginx Configuration ---
+nginx_port: 80
+nginx_server_name: "_"
+nginx_root: "/var/www/html"
+nginx_worker_processes: "auto"
+nginx_worker_connections: 768
+
+# --- Nginx Features ---
+nginx_enable_gzip: true
+nginx_enable_rate_limit: false
+nginx_enable_ssl: false
+
+# --- Nginx Custom Headers ---
+nginx_custom_headers: []
+
+# --- Nginx Upstream ---
+nginx_upstream_servers: []

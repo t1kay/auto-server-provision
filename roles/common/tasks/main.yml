@@ -57,3 +57,26 @@
     state: started
     enabled: yes
   tags: system
+
+# --- Deploy nginx config on webservers ---
+- name: Deploy nginx configuration from template
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: yes
+    validate: "nginx -t -c %s"
+  when: "'webservers' in group_names"
+  notify:
+    - reload nginx
+  tags: web, nginx
+
+- name: Ensure nginx is started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+  when: "'webservers' in group_names"
+  tags: web, nginx
