@@ -8,10 +8,15 @@
 > **Tự động hóa cài đặt và cấu hình Linux server** bằng Ansible, Bash scripting và Jinja2 templates.
 > Hỗ trợ multi-environment (dev/prod) với config linh hoạt.
 
+## 🎬 Demo
+
+[![Demo Video](https://img.youtube.com/vi/d0qSQEahTS8/maxresdefault.jpg)](https://youtu.be/d0qSQEahTS8)
+
 ---
 
 ## 📋 Mục lục
 
+- [Demo](#-demo)
 - [Kiến trúc hệ thống](#-kiến-trúc-hệ-thống)
 - [Tính năng](#-tính-năng)
 - [Cấu trúc project](#-cấu-trúc-project)
