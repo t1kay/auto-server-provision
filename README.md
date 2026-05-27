@@ -115,7 +115,6 @@ auto-server-provision/
 
 ### Phần mềm trên Windows
 - [VMware Workstation Pro](https://www.vmware.com/) (free từ 2024)
-- [MobaXterm](https://mobaxterm.mobatek.net/) — SSH client
 
 ### VM Specifications
 
@@ -331,7 +330,4 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-<p align="center">
-  <b>Built for DevOps Intern Application</b><br>
-  <i>Ansible · Bash · Jinja2 · Ubuntu</i>
-</p>
+
