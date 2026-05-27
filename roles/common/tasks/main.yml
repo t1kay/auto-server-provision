@@ -59,6 +59,26 @@
   tags: system
 
 # --- Deploy nginx config on webservers ---
+- name: Ensure nginx root directory exists
+  file:
+    path: "{{ nginx_root | default('/var/www/html') }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+  when: "'webservers' in group_names"
+  tags: web, nginx
+
+- name: Deploy custom index.html website
+  template:
+    src: index.html.j2
+    dest: "{{ nginx_root | default('/var/www/html') }}/index.html"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+  when: "'webservers' in group_names"
+  tags: web, nginx
+
 - name: Deploy nginx configuration from template
   template:
     src: nginx.conf.j2
@@ -80,3 +100,4 @@
     enabled: yes
   when: "'webservers' in group_names"
   tags: web, nginx
+

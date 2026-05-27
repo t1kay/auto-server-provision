@@ -44,6 +44,11 @@ nginx_custom_headers:
 nginx_upstream_servers:
   - "127.0.0.1:3000"
 
+# --- UFW Firewall (Dev) ---
+ufw_allowed_ports:
+  - { port: "22", proto: "tcp", comment: "SSH" }
+  - { port: "8080", proto: "tcp", comment: "HTTP (Dev)" }
+
 # --- SSH (Dev — less strict for easier debugging) ---
 ssh_permit_root_login: "no"
 ssh_password_authentication: "yes"

@@ -147,6 +147,44 @@ sudo netplan apply
 
 ---
 
+## Lỗi 4: Nginx 403 Forbidden khi Verify
+
+**Ngày gặp:** Day 8–10
+
+**Triệu chứng:**
+```json
+"msg": "Status code was 403 and not [200]: HTTP Error 403: Forbidden",
+"url": "http://localhost:8080"
+```
+
+**Nguyên nhân:**
+Nginx mặc định tìm kiếm các file index (`index.html`, `index.htm`) trong thư mục root (`/var/www/html`). Khi cài đặt nginx thông thường, Ubuntu tạo file `index.nginx-debian.html` thay vì `index.html`. Do cấu hình Nginx chỉ tìm kiếm `index.html`, Nginx trả về lỗi `403 Forbidden` do thư mục không có file index mặc định và autoindex bị tắt.
+
+**Cách fix:**
+Thêm task trong `roles/common/tasks/main.yml` để tự động tạo và deploy một trang landing page custom sử dụng template [index.html.j2](file:///d:/auto-server-provision/roles/common/templates/index.html.j2) được thiết kế hiện đại, nhằm hiển thị đầy đủ thông tin server đã provision thành công.
+
+---
+
+## Lỗi 5: HTTP Status 000 & Could not resolve hostname web01
+
+**Ngày gặp:** Day 8–10
+
+**Triệu chứng:**
+```bash
+HTTP Status: 000
+ssh: Could not resolve hostname web01: Temporary failure in name resolution
+```
+
+**Nguyên nhân:**
+1. **Lỗi `hostname web01`**: OS của control node (`ubuntu-control`) không tự phân giải được tên `web01` vì chưa cấu hình trong `/etc/hosts` (Ansible kết nối được do ta đã chỉ định `ansible_host=192.168.209.11` trong inventory file).
+2. **Lỗi `HTTP Status: 000`**: Do cổng `8080` bị chặn bởi UFW firewall trên host `web01`. Role `security` mặc định chỉ cho phép cổng `22` và `80`, trong khi môi trường `dev` chạy Nginx trên cổng `8080`.
+
+**Cách fix:**
+1. **Phân giải hostname**: Thêm ánh xạ IP vào `/etc/hosts` trên control node hoặc SSH trực tiếp bằng IP thay vì hostname (`ssh t1kayyyy@192.168.209.11`).
+2. **Cho phép port 8080**: Khai báo biến `ufw_allowed_ports` đè trong `inventories/dev/group_vars/all.yml` để mở port `8080` cho môi trường dev.
+
+---
+
 ## Tổng hợp
 
 | # | Lỗi | Bài học cốt lõi |
@@ -154,7 +192,9 @@ sudo netplan apply
 | 1 | Role not found | Luôn tạo `ansible.cfg` để control paths, chú ý vị trí `git clone` |
 | 2 | Sudo timeout | Setup passwordless sudo **trước** khi viết playbook |
 | 3 | DNS sai interface | Multi-interface: ping OK ≠ DNS OK, service gắn theo interface |
+| 4 | Nginx 403 Forbidden | Đảm bảo trang index mặc định tương thích hoặc tự deploy index.html riêng |
+| 5 | HTTP Status 000 & Hostname resolution | 1. SSH từ shell cần DNS/hosts hoặc dùng trực tiếp IP. <br>2. Đảm bảo Firewall mở đúng cổng ứng với từng môi trường |
 
 ---
 
-*Cập nhật lần cuối: 2026-05-26*
+*Cập nhật lần cuối: 2026-05-27*
