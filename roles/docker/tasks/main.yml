@@ -61,6 +61,7 @@
     name: docker
     state: started
     enabled: yes
+  when: env != 'docker'
   tags: docker
 
 # --- Create docker group ---
