@@ -1,0 +1,37 @@
+FROM jrei/systemd-ubuntu:22.04
+
+# Avoid interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install SSH server, Python3, sudo, and network utilities
+RUN apt-get update && apt-get install -y \
+    openssh-server \
+    python3 \
+    sudo \
+    iproute2 \
+    net-tools \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up SSH directory
+RUN mkdir -p /var/run/sshd
+
+# Create group and user t1kayyyy
+RUN groupadd -g 1000 t1kayyyy && \
+    useradd -rm -d /home/t1kayyyy -s /bin/bash -g t1kayyyy -G sudo -u 1000 t1kayyyy
+
+# Configure passwordless sudo for user t1kayyyy
+RUN echo "t1kayyyy ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/t1kayyyy && \
+    chmod 0440 /etc/sudoers.d/t1kayyyy
+
+# Copy and set up the test SSH public key
+RUN mkdir -p /home/t1kayyyy/.ssh && chmod 700 /home/t1kayyyy/.ssh
+COPY ssh/id_rsa.pub /home/t1kayyyy/.ssh/authorized_keys
+RUN chmod 600 /home/t1kayyyy/.ssh/authorized_keys && \
+    chown -R t1kayyyy:t1kayyyy /home/t1kayyyy/.ssh
+
+# Enable SSH service under systemd
+RUN systemctl enable ssh
+
+# Expose SSH port
+EXPOSE 22

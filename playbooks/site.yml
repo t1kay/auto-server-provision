@@ -25,6 +25,14 @@
     - security
   tags: security
 
+# --- Install Docker on ALL hosts ---
+- name: Install and configure Docker on all servers
+  hosts: all
+  become: true
+  roles:
+    - docker
+  tags: docker
+
 # --- Configure web servers ---
 - name: Configure web servers
   hosts: webservers

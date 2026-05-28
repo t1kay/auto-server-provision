@@ -1,0 +1,52 @@
+---
+# ============================================
+# DOCKER Environment Variables (Local Lab)
+# Overrides defaults for containerized testing
+# ============================================
+
+# --- User Configuration ---
+devops_user: devops
+devops_shell: /bin/bash
+
+# --- System Configuration ---
+server_timezone: Asia/Ho_Chi_Minh
+
+# --- Common packages ---
+common_packages:
+  - vim
+  - curl
+  - wget
+  - htop
+  - git
+  - net-tools
+  - unzip
+
+# --- Web server packages ---
+web_packages:
+  - nginx
+
+# --- Environment ---
+env: docker
+
+# --- Nginx (Docker) ---
+nginx_port: 8080
+nginx_server_name: "docker.local"
+nginx_worker_processes: 1
+nginx_worker_connections: 256
+nginx_enable_gzip: false
+nginx_enable_rate_limit: false
+nginx_enable_ssl: false
+nginx_custom_headers:
+  - "X-Environment: docker-lab"
+  - "X-Debug-Mode: enabled"
+
+# --- Nginx Upstream ---
+nginx_upstream_servers:
+  - "127.0.0.1:3000"
+
+# --- Docker Lab Compatibility Settings ---
+# Firewalls (UFW) and brute-force protection (Fail2ban) require kernel privileges
+# that are restricted inside standard Docker containers. We disable them here.
+skip_firewall: true
+skip_fail2ban: true
+skip_ssh_hardening: false  # Safe to modify sshd_config in container

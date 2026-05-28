@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  ansible-control:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.control
+    container_name: ansible-control
+    volumes:
+      - .:/workspace
+    networks:
+      - ansible-net
+    depends_on:
+      - web01
+      - db01
+
+  web01:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.node
+    container_name: web01
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    tmpfs:
+      - /run
+      - /run/lock
+    ports:
+      - "8080:8080" # Map dev Nginx port to host
+      - "2221:22"   # Map SSH port to host for external access if needed
+    networks:
+      - ansible-net
+
+  db01:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.node
+    container_name: db01
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    tmpfs:
+      - /run
+      - /run/lock
+    ports:
+      - "2222:22"   # Map SSH port to host for external access if needed
+    networks:
+      - ansible-net
+
+networks:
+  ansible-net:
+    driver: bridge
