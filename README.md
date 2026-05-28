@@ -310,24 +310,6 @@ ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml --check --diff
 
 ---
 
-## 🔥 Troubleshooting
-
-Xem [docs/troubleshooting.md](docs/troubleshooting.md) cho danh sách các lỗi đã gặp và cách fix.
-
-### Quick fixes
-
-```bash
-# Ansible không tìm thấy role
-# → Kiểm tra ansible.cfg có roles_path = roles
-
-# Sudo timeout
-# → Cấu hình passwordless sudo (xem phần Cài đặt)
-
-# DNS không resolve
-# → Đặt nameservers trên interface NAT, không phải Host-only
-```
-
----
 
 ## 📝 License
 
