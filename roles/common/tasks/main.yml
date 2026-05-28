@@ -42,12 +42,14 @@
 - name: Set hostname
   hostname:
     name: "{{ inventory_hostname }}"
+  when: env != 'docker'
   tags: system
 
 # --- Set timezone ---
 - name: Set timezone to {{ server_timezone }}
   timezone:
     name: "{{ server_timezone }}"
+  when: env != 'docker'
   tags: system
 
 # --- Ensure NTP is installed and running ---
@@ -56,9 +58,17 @@
     name: systemd-timesyncd
     state: started
     enabled: yes
+  when: env != 'docker'
   tags: system
 
 # --- Deploy nginx config on webservers ---
+- name: Install Nginx web server packages
+  apt:
+    name: "{{ web_packages }}"
+    state: present
+  when: "'webservers' in group_names"
+  tags: web, nginx
+
 - name: Ensure nginx root directory exists
   file:
     path: "{{ nginx_root | default('/var/www/html') }}"

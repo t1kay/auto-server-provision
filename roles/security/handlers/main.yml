@@ -6,8 +6,9 @@
 
 - name: restart sshd
   service:
-    name: sshd
+    name: ssh
     state: restarted
+  when: env != 'docker'
 
 - name: restart fail2ban
   service:

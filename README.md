@@ -235,7 +235,44 @@ ansible-playbook -i inventories/dev/hosts.ini playbooks/site.yml
 ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml
 ```
 
-### So sánh cấu hình Dev vs Prod
+### Chạy trên Docker Lab (Giả lập cục bộ)
+
+Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án hoàn chỉnh trên Docker bằng Docker Compose (yêu cầu máy host đã cài đặt **Docker Desktop**):
+
+1. **Khởi động cụm Lab (Docker containers)**:
+   ```bash
+   docker-compose up -d --build
+   ```
+   Lệnh này sẽ khởi động 3 container kết nối chung mạng nội bộ `ansible-net`:
+   - `ansible-control`: Node điều khiển (được cài sẵn Ansible, SSH private key và mount mã nguồn dự án).
+   - `web01`: Target node giả lập webserver (Ubuntu systemd & sshd).
+   - `db01`: Target node giả lập database server (Ubuntu systemd & sshd).
+
+2. **Truy cập control node và chạy thử preflight check**:
+   ```bash
+   docker exec -it ansible-control bash scripts/preflight.sh
+   ```
+
+3. **Chạy Ansible Playbook**:
+   Chạy lệnh sau để thực thi toàn bộ playbook trên môi trường Docker:
+   ```bash
+   docker exec -it ansible-control ansible-playbook -i inventories/docker/hosts.ini playbooks/site.yml
+   ```
+   *(Để chỉ test cài đặt Docker, thêm `--tags docker`)*
+
+4. **Kiểm tra kết quả**:
+   - Truy cập trang web Nginx từ máy host (Windows/Mac) qua port forward: [http://localhost:8080](http://localhost:8080)
+   - Hoặc curl từ control node:
+     ```bash
+     docker exec -it ansible-control curl http://web01:8080
+     ```
+
+5. **Tắt môi trường Lab**:
+   ```bash
+   docker-compose down
+   ```
+
+### So sánh cấu hình các môi trường
 
 | Setting | Dev | Prod |
 |---------|-----|------|

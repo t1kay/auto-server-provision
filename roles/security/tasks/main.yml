@@ -9,89 +9,99 @@
 # SECTION 1: SSH HARDENING
 # ==========================================
 
-- name: Deploy hardened sshd_config
-  template:
-    src: sshd_config.j2
-    dest: /etc/ssh/sshd_config
-    owner: root
-    group: root
-    mode: "0600"
-    backup: yes
-    validate: "sshd -t -f %s"
-  notify: restart sshd
-  tags: security, ssh
+- name: Configure SSH Hardening
+  block:
+    - name: Deploy hardened sshd_config
+      template:
+        src: sshd_config.j2
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: "0600"
+        backup: yes
+        validate: "sshd -t -f %s"
+      notify: restart sshd
+      tags: security, ssh
+  when: not (skip_ssh_hardening | default(false))
 
 # ==========================================
 # SECTION 2: UFW FIREWALL
 # ==========================================
 
-- name: Install UFW
-  apt:
-    name: ufw
-    state: present
-  tags: security, firewall
+- name: Configure UFW Firewall
+  block:
+    - name: Install UFW
+      apt:
+        name: ufw
+        state: present
+      tags: security, firewall
 
-- name: Set UFW default incoming policy to {{ ufw_default_incoming }}
-  ufw:
-    direction: incoming
-    policy: "{{ ufw_default_incoming }}"
-  tags: security, firewall
+    - name: Set UFW default incoming policy to {{ ufw_default_incoming }}
+      ufw:
+        direction: incoming
+        policy: "{{ ufw_default_incoming }}"
+      tags: security, firewall
 
-- name: Set UFW default outgoing policy to {{ ufw_default_outgoing }}
-  ufw:
-    direction: outgoing
-    policy: "{{ ufw_default_outgoing }}"
-  tags: security, firewall
+    - name: Set UFW default outgoing policy to {{ ufw_default_outgoing }}
+      ufw:
+        direction: outgoing
+        policy: "{{ ufw_default_outgoing }}"
+      tags: security, firewall
 
-- name: Allow ports through UFW
-  ufw:
-    rule: allow
-    port: "{{ item.port }}"
-    proto: "{{ item.proto }}"
-    comment: "{{ item.comment | default(omit) }}"
-  loop: "{{ ufw_allowed_ports }}"
-  tags: security, firewall
+    - name: Allow ports through UFW
+      ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+        comment: "{{ item.comment | default(omit) }}"
+      loop: "{{ ufw_allowed_ports }}"
+      tags: security, firewall
 
-- name: Enable UFW
-  ufw:
-    state: enabled
-  tags: security, firewall
+    - name: Enable UFW
+      ufw:
+        state: enabled
+      tags: security, firewall
+  when: not (skip_firewall | default(false))
 
 # ==========================================
 # SECTION 3: FAIL2BAN
 # ==========================================
 
-- name: Install fail2ban
-  apt:
-    name: fail2ban
-    state: present
-  tags: security, fail2ban
+- name: Configure Fail2ban
+  block:
+    - name: Install fail2ban
+      apt:
+        name: fail2ban
+        state: present
+      tags: security, fail2ban
 
-- name: Configure fail2ban jail.local
-  copy:
-    content: |
-      # Managed by Ansible — DO NOT EDIT MANUALLY
-      # Fail2ban local configuration
-      [DEFAULT]
-      bantime  = {{ fail2ban_bantime }}
-      findtime = {{ fail2ban_findtime }}
-      maxretry = {{ fail2ban_maxretry }}
+    - name: Configure fail2ban jail.local
+      copy:
+        content: |
+          # Managed by Ansible — DO NOT EDIT MANUALLY
+          # Fail2ban local configuration
+          [DEFAULT]
+          bantime  = {{ fail2ban_bantime }}
+          findtime = {{ fail2ban_findtime }}
+          maxretry = {{ fail2ban_maxretry }}
 
-      [sshd]
-      enabled = true
-      port    = {{ ssh_port }}
-      filter  = sshd
-      logpath = /var/log/auth.log
-    dest: /etc/fail2ban/jail.local
-    owner: root
-    group: root
-    mode: "0644"
-  notify: restart fail2ban
-  tags: security, fail2ban
+          [sshd]
+          enabled = true
+          port    = {{ ssh_port }}
+          filter  = sshd
+          logpath = /var/log/auth.log
+        dest: /etc/fail2ban/jail.local
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart fail2ban
+      tags: security, fail2ban
 
-- name: Ensure fail2ban is started and enabled
-  service:
-    name: fail2ban
-    state: started
-    enabled: yes
-  tags: security, fail2ban
+    - name: Ensure fail2ban is started and enabled
+      service:
+        name: fail2ban
+        state: started
+        enabled: yes
+      tags: security, fail2ban
+  when: not (skip_fail2ban | default(false))
+

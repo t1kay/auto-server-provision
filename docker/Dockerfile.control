@@ -1,0 +1,38 @@
+FROM ubuntu:22.04
+
+# Avoid interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install common dependencies
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    openssh-client \
+    sshpass \
+    git \
+    python3 \
+    python3-pip \
+    curl \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Ansible PPA and install the latest Ansible
+RUN add-apt-repository --yes --update ppa:ansible/ansible && \
+    apt-get install -y ansible && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set up SSH directory for root
+RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
+
+# Copy the private key and set correct permissions
+COPY ssh/id_rsa /root/.ssh/id_rsa
+RUN chmod 600 /root/.ssh/id_rsa
+
+# Disable Host Key checking to allow passwordless SSH script execution
+RUN echo "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile /dev/null\n\tIdentityFile /root/.ssh/id_rsa\n" > /root/.ssh/config && \
+    chmod 600 /root/.ssh/config
+
+# Define working directory inside the container
+WORKDIR /workspace
+
+# Keep container running
+CMD ["sleep", "infinity"]
