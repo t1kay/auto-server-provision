@@ -32,9 +32,14 @@
 
 ## 🏗 Kiến trúc hệ thống
 
+Dự án hỗ trợ hai phương án chạy thử nghiệm hệ thống linh hoạt:
+
+### 1. Môi trường VM Lab (VMware Workstation)
+Giả lập đầy đủ hệ điều hành và các lớp bảo mật mạng (UFW firewall, Fail2ban).
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Windows Host (VMware)                     │
+│                    Windows Host (VMware)                    │
 │                                                             │
 │  ┌─────────────────┐   SSH    ┌──────────────────────────┐  │
 │  │  ubuntu-control  │────────▶│  web01 (webserver)        │  │
@@ -55,7 +60,33 @@
          VMnet: Host-only (192.168.209.0/24)
 ```
 
-**Tech stack:** Ansible · Bash · Jinja2 · UFW · fail2ban · Ubuntu Server 22.04 · VMware
+### 2. Môi trường Container Lab (Docker Compose)
+Dành cho kiểm nghiệm nhanh gọn, không đòi hỏi phần cứng mạnh hay cấu hình VM phức tạp.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Windows/macOS (Docker)                   │
+│                                                             │
+│  ┌─────────────────┐   SSH    ┌──────────────────────────┐  │
+│  │ ansible-control │────────▶│  web01 (webserver)       │  │
+│  │ (Ubuntu container│         │ (Ubuntu container)       │  │
+│  │                  │         │  • nginx                 │  │
+│  │  • Ansible       │   SSH   │  • Docker Engine (Role)  │  │
+│  │  • SSH client    │────────▶│  • SSH daemon            │  │
+│  │  • Mounted Code  │         │                          │  │
+│  │                  │         ├──────────────────────────┤  │
+│  │                  │         │  db01 (dbserver)         │  │
+│  └─────────────────┘         │ (Ubuntu container)       │  │
+│                               │  • Docker Engine (Role)  │  │
+│          Control Node         │  • SSH daemon            │  │
+│                               └──────────────────────────┘  │
+│                                     Managed Nodes            │
+└─────────────────────────────────────────────────────────────┘
+             Docker Bridge Network: ansible-net
+```
+
+**Tech stack:** Ansible · Docker & Docker Compose · Bash · Jinja2 · UFW · fail2ban · Ubuntu Server 22.04 · VMware
+
 
 ---
 
@@ -69,8 +100,9 @@
 | 4 | **UFW Firewall** | Chỉ mở port 22 (SSH) và 80 (HTTP), deny all incoming mặc định |
 | 5 | **Fail2ban** | Chống brute force SSH, auto-ban IP sau 5 lần thất bại |
 | 6 | **Nginx Config** | Jinja2 template với gzip, rate limiting, upstream, security headers |
-| 7 | **Multi-environment** | Dev/Prod config khác nhau, chạy cùng playbook |
-| 8 | **Idempotency** | Chạy bao nhiêu lần cũng cho kết quả giống nhau |
+| 7 | **Multi-environment** | Dev, Prod và Docker Lab (giả lập) config độc lập |
+| 8 | **Automated Docker Setup** | Tự động cài đặt Docker Engine và Docker Compose lên các target node bằng Ansible role |
+| 9 | **Idempotency** | Chạy bao nhiêu lần cũng cho kết quả giống nhau |
 
 ---
 
@@ -78,38 +110,52 @@
 
 ```
 auto-server-provision/
-├── ansible.cfg                          # Ansible configuration
-├── inventory.ini                        # Default inventory
+├── ansible.cfg                          # Cấu hình Ansible mặc định
+├── docker-compose.yml                   # Cấu hình điều phối Docker Lab
+├── inventory.ini                        # Default VM inventory
+├── docker/                              # Môi trường chạy Docker Lab
+│   ├── Dockerfile.control               # Dockerfile cho Ansible control node
+│   ├── Dockerfile.node                  # Dockerfile cho target node
+│   └── ssh/                             # Khóa SSH dùng cho môi trường container lab
+│       ├── id_rsa
+│       └── id_rsa.pub
 ├── inventories/
-│   ├── dev/
-│   │   ├── hosts.ini                    # Dev hosts
+│   ├── dev/                             # Cấu hình môi trường phát triển (VM)
+│   │   ├── hosts.ini
 │   │   └── group_vars/
-│   │       └── all.yml                  # Dev variables
-│   └── prod/
-│       ├── hosts.ini                    # Prod hosts
+│   │       └── all.yml
+│   ├── prod/                            # Cấu hình môi trường product (VM)
+│   │   ├── hosts.ini
+│   │   └── group_vars/
+│   │       └── all.yml
+│   └── docker/                          # Cấu hình môi trường Lab giả lập (Docker)
+│       ├── hosts.ini
 │       └── group_vars/
-│           └── all.yml                  # Prod variables
+│           └── all.yml
 ├── group_vars/
-│   └── all.yml                          # Shared default variables
+│   └── all.yml                          # Biến mặc định dùng chung
 ├── roles/
 │   ├── common/                          # Base server configuration
-│   │   ├── defaults/main.yml            # Default variables
-│   │   ├── handlers/main.yml            # Service restart handlers
-│   │   ├── tasks/main.yml               # Tasks: packages, user, nginx
+│   │   ├── defaults/main.yml
+│   │   ├── handlers/main.yml
+│   │   ├── tasks/main.yml               # Cài Nginx, thiết lập timezone, hostname
 │   │   └── templates/
-│   │       └── nginx.conf.j2            # Nginx Jinja2 template
-│   └── security/                        # Security hardening
-│       ├── defaults/main.yml            # Security variables
-│       ├── handlers/main.yml            # SSH/fail2ban restart
-│       ├── tasks/main.yml               # Tasks: SSH, UFW, fail2ban
-│       └── templates/
-│           └── sshd_config.j2           # SSH config template
+│   │       └── nginx.conf.j2
+│   ├── security/                        # Bảo mật và gia cố server
+│   │   ├── defaults/main.yml
+│   │   ├── handlers/main.yml
+│   │   ├── tasks/main.yml               # Cài SSH Hardening, UFW, Fail2ban
+│   │   └── templates/
+│   │       └── sshd_config.j2
+│   └── docker/                          # [NEW] Role cài đặt Docker
+│       ├── defaults/main.yml
+│       └── tasks/main.yml               # Tasks thêm repo, cài Docker Engine/Compose
 ├── playbooks/
-│   └── site.yml                         # Main playbook
+│   └── site.yml                         # Playbook chính điều phối toàn bộ
 ├── scripts/
-│   └── preflight.sh                     # Pre-provision check script
+│   └── preflight.sh                     # Script kiểm tra trước khi cài đặt
 ├── docs/
-│   ├── troubleshooting.md               # Lỗi gặp phải & cách fix
+│   ├── troubleshooting.md               # Lỗi gặp phải & cách sửa
 │   └── screenshots/
 └── README.md
 ```
@@ -330,10 +376,14 @@ ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml --check --diff
 ### Ansible
 - **Inventory & Groups** — Phân nhóm server theo role (webservers, dbservers)
 - **Roles** — Tổ chức code theo chuẩn (tasks, handlers, defaults, templates)
-- **Handlers** — Chỉ restart service khi config thực sự thay đổi
-- **Tags** — Chạy selective tasks, tiết kiệm thời gian khi debug
+- **Handlers** — Chỉ restart service khi config thực sự thay đổi (tối ưu hóa điều kiện bypass trong Docker)
+- **Tags** — Chạy selective tasks, tiết kiệm thời gian khi debug (ví dụ: `--tags docker`)
 - **Idempotency** — Chạy nhiều lần, kết quả giống nhau
 - **Check mode** — Dry run để preview thay đổi trước khi apply
+
+### Docker & Docker Compose
+- **Containerization** — Đóng gói Ansible Control Node giúp chạy playbook ngay từ máy host mà không cần cài đặt Ansible thủ công hay dùng VM cồng kềnh.
+- **Orchestration & Virtual Networking** — Dùng Docker Compose khởi tạo mạng Bridge Network để điều phối việc giả lập các node SSH đích (`web01`, `db01`), liên lạc qua hostname container.
 
 ### Jinja2 Templates
 - **Variables** — `{{ nginx_port }}` cho config linh hoạt
@@ -347,7 +397,7 @@ ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml --check --diff
 - **System commands** — `free`, `df`, `uname`, `ss` để kiểm tra hệ thống
 
 ### Linux Security
-- **SSH Hardening** — Disable root, disable password, limit retries
+- **SSH Hardening** — Disable root, disable password, limit retries (áp dụng an toàn thông qua key auth trên Docker Lab)
 - **UFW Firewall** — Default deny, whitelist only needed ports
 - **Fail2ban** — Tự động ban IP brute force
 
