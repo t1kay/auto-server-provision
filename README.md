@@ -245,8 +245,8 @@ Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án 
    ```
    Lệnh này sẽ khởi động 3 container kết nối chung mạng nội bộ `ansible-net`:
    - `ansible-control`: Node điều khiển (được cài sẵn Ansible, SSH private key và mount mã nguồn dự án).
-   - `web01`: Target node giả lập webserver (Ubuntu systemd & sshd).
-   - `db01`: Target node giả lập database server (Ubuntu systemd & sshd).
+   - `web01`: Target node giả lập webserver (Ubuntu SSH).
+   - `db01`: Target node giả lập database server (Ubuntu SSH).
 
 2. **Truy cập control node và chạy thử preflight check**:
    ```bash
@@ -260,8 +260,11 @@ Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án 
    ```
    *(Để chỉ test cài đặt Docker, thêm `--tags docker`)*
 
+   > [!NOTE]
+   > Trong môi trường Docker container, các tác vụ liên quan đến hệ thống (như thay đổi Hostname, cài đặt Timezone, đồng bộ NTP) và bảo mật (như kích hoạt UFW Firewall, chạy Fail2ban) sẽ được tự động bỏ qua để tránh lỗi phân quyền kernel đặc quyền của Docker Desktop.
+
 4. **Kiểm tra kết quả**:
-   - Truy cập trang web Nginx từ máy host (Windows/Mac) qua port forward: [http://localhost:8080](http://localhost:8080)
+   - Truy cập trang Nginx trực tiếp từ máy host (Windows/Mac) qua port forward: [http://localhost:8080](http://localhost:8080)
    - Hoặc curl từ control node:
      ```bash
      docker exec -it ansible-control curl http://web01:8080
@@ -274,17 +277,20 @@ Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án 
 
 ### So sánh cấu hình các môi trường
 
-| Setting | Dev | Prod |
-|---------|-----|------|
-| Nginx port | 8080 | 80 |
-| Server name | dev.local | example.com |
-| Gzip | ❌ Off | ✅ On |
-| Rate limiting | ❌ Off | ✅ On |
-| Workers | 1 | auto |
-| SSH password auth | ✅ Yes | ❌ No |
-| Fail2ban max retry | 10 | 3 |
-| Fail2ban ban time | 10 min | 24 hours |
-| Upstream servers | 1 | 2 (HA) |
+| Setting | Dev | Prod | Docker Lab |
+|---------|-----|------|------------|
+| Nginx port | 8080 | 80 | 8080 |
+| Server name | dev.local | example.com | docker.local |
+| Gzip | ❌ Off | ✅ On | ❌ Off |
+| Rate limiting | ❌ Off | ✅ On | ❌ Off |
+| Workers | 1 | auto | 1 |
+| SSH password auth | ✅ Yes | ❌ No | ❌ No (Chỉ dùng Key) |
+| Fail2ban max retry | 10 | 3 | ❌ Bỏ qua (Skipped) |
+| Fail2ban ban time | 10 min | 24 hours | ❌ Bỏ qua (Skipped) |
+| Upstream servers | 1 | 2 (HA) | 1 |
+| UFW Firewall | ✅ Bật | ✅ Bật | ❌ Bỏ qua (Skipped) |
+| Docker Engine | ❌ Không cài | ❌ Không cài | ✅ Có cài (Installed) |
+
 
 ### Dry Run (Check Mode)
 
