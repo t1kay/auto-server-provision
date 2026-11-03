@@ -1,55 +1,21 @@
 ---
 # ============================================
-# PROD Environment Variables
-# Production-hardened settings
+# PROD environment — only values that differ from role defaults
 # ============================================
 
-# --- User Configuration ---
-devops_user: devops
-devops_shell: /bin/bash
-
-# --- System Configuration ---
-server_timezone: Asia/Ho_Chi_Minh
-
-# --- Common packages (installed on ALL nodes) ---
-common_packages:
-  - vim
-  - curl
-  - wget
-  - htop
-  - git
-  - net-tools
-  - unzip
-
-# --- Web server packages (installed on webservers group) ---
-web_packages:
-  - nginx
-
-# --- Environment ---
 env: prod
 
-# --- Nginx (Prod) ---
-nginx_port: 80
-nginx_server_name: "example.com"
-nginx_worker_processes: "auto"
+# --- Nginx ---
+nginx_server_name: example.com
 nginx_worker_connections: 1024
-nginx_enable_gzip: true
 nginx_enable_rate_limit: true
-nginx_enable_ssl: false
 nginx_custom_headers:
-  - "X-Environment: production"
-
-# --- Nginx Upstream (Prod — multiple backends for HA) ---
+  - { name: X-Environment, value: production }
 nginx_upstream_servers:
-  - "127.0.0.1:3000"
-  - "127.0.0.1:3001"
+  - 127.0.0.1:3000
+  - 127.0.0.1:3001
 
-# --- SSH (Prod — strict lockdown) ---
-ssh_permit_root_login: "no"
-ssh_password_authentication: "no"
-ssh_max_auth_tries: 3
-
-# --- Fail2ban (Prod — aggressive) ---
+# --- Fail2ban: aggressive ---
 fail2ban_maxretry: 3
 fail2ban_bantime: 86400
 fail2ban_findtime: 3600

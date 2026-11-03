@@ -1,8 +1,15 @@
 ---
 # ============================================
 # Role: security — Default variables
-# Override these in group_vars or host_vars
+# Override these in inventories/<env>/group_vars
 # ============================================
+
+is_container_lab: false
+
+# --- Feature toggles ---
+skip_ssh_hardening: false
+skip_firewall: false
+skip_fail2ban: false
 
 # --- SSH Hardening ---
 ssh_port: 22
@@ -14,11 +21,11 @@ ssh_x11_forwarding: "no"
 ssh_login_grace_time: 60
 
 # --- UFW Firewall ---
+# SSH ({{ ssh_port }}) is always allowed; list only extra ports here.
 ufw_default_incoming: deny
 ufw_default_outgoing: allow
 ufw_allowed_ports:
-  - { port: "22", proto: "tcp", comment: "SSH" }
-  - { port: "80", proto: "tcp", comment: "HTTP" }
+  - { port: 80, proto: tcp, comment: HTTP }
 
 # --- Fail2ban ---
 fail2ban_maxretry: 5

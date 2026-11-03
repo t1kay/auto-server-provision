@@ -5,103 +5,78 @@
 # Purpose: SSH hardening, UFW firewall, fail2ban
 # ============================================
 
-# ==========================================
-# SECTION 1: SSH HARDENING
-# ==========================================
+- name: Harden SSH daemon
+  ansible.builtin.template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: "0600"
+    backup: true
+    validate: "sshd -t -f %s"
+  notify: Restart sshd
+  when: not skip_ssh_hardening
+  tags: ssh
 
-- name: Configure SSH Hardening
-  block:
-    - name: Deploy hardened sshd_config
-      template:
-        src: sshd_config.j2
-        dest: /etc/ssh/sshd_config
-        owner: root
-        group: root
-        mode: "0600"
-        backup: yes
-        validate: "sshd -t -f %s"
-      notify: restart sshd
-      tags: security, ssh
-  when: not (skip_ssh_hardening | default(false))
-
-# ==========================================
-# SECTION 2: UFW FIREWALL
-# ==========================================
-
-- name: Configure UFW Firewall
+- name: Configure UFW firewall
+  when: not skip_firewall
+  tags: firewall
   block:
     - name: Install UFW
-      apt:
+      ansible.builtin.apt:
         name: ufw
         state: present
-      tags: security, firewall
 
-    - name: Set UFW default incoming policy to {{ ufw_default_incoming }}
-      ufw:
-        direction: incoming
-        policy: "{{ ufw_default_incoming }}"
-      tags: security, firewall
-
-    - name: Set UFW default outgoing policy to {{ ufw_default_outgoing }}
-      ufw:
-        direction: outgoing
-        policy: "{{ ufw_default_outgoing }}"
-      tags: security, firewall
-
-    - name: Allow ports through UFW
-      ufw:
+    # Allow SSH first so enabling the firewall can never lock us out
+    - name: Allow SSH on port {{ ssh_port }}
+      community.general.ufw:
         rule: allow
-        port: "{{ item.port }}"
-        proto: "{{ item.proto }}"
+        port: "{{ ssh_port | string }}"
+        proto: tcp
+        comment: SSH
+
+    - name: Allow additional ports
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.port | string }}"
+        proto: "{{ item.proto | default('tcp') }}"
         comment: "{{ item.comment | default(omit) }}"
       loop: "{{ ufw_allowed_ports }}"
-      tags: security, firewall
+      loop_control:
+        label: "{{ item.port }}/{{ item.proto | default('tcp') }}"
+
+    - name: Set default policies
+      community.general.ufw:
+        direction: "{{ item.direction }}"
+        policy: "{{ item.policy }}"
+      loop:
+        - { direction: incoming, policy: "{{ ufw_default_incoming }}" }
+        - { direction: outgoing, policy: "{{ ufw_default_outgoing }}" }
 
     - name: Enable UFW
-      ufw:
+      community.general.ufw:
         state: enabled
-      tags: security, firewall
-  when: not (skip_firewall | default(false))
 
-# ==========================================
-# SECTION 3: FAIL2BAN
-# ==========================================
-
-- name: Configure Fail2ban
+- name: Configure fail2ban
+  when: not skip_fail2ban
+  tags: fail2ban
   block:
     - name: Install fail2ban
-      apt:
+      ansible.builtin.apt:
         name: fail2ban
         state: present
-      tags: security, fail2ban
 
-    - name: Configure fail2ban jail.local
-      copy:
-        content: |
-          # Managed by Ansible — DO NOT EDIT MANUALLY
-          # Fail2ban local configuration
-          [DEFAULT]
-          bantime  = {{ fail2ban_bantime }}
-          findtime = {{ fail2ban_findtime }}
-          maxretry = {{ fail2ban_maxretry }}
-
-          [sshd]
-          enabled = true
-          port    = {{ ssh_port }}
-          filter  = sshd
-          logpath = /var/log/auth.log
+    - name: Deploy jail.local
+      ansible.builtin.template:
+        src: jail.local.j2
         dest: /etc/fail2ban/jail.local
         owner: root
         group: root
         mode: "0644"
-      notify: restart fail2ban
-      tags: security, fail2ban
+      notify: Restart fail2ban
 
     - name: Ensure fail2ban is started and enabled
-      service:
+      ansible.builtin.service:
         name: fail2ban
         state: started
-        enabled: yes
-      tags: security, fail2ban
-  when: not (skip_fail2ban | default(false))
-
+        enabled: true

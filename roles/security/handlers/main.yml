@@ -1,16 +1,13 @@
 ---
-# ============================================
-# Role: security — Handlers
-# Triggered by 'notify' in tasks
-# ============================================
-
-- name: restart sshd
-  service:
+# In the container lab sshd runs as PID 1 (no systemd), so a restart
+# would kill the container; the new config is picked up on next start.
+- name: Restart sshd
+  ansible.builtin.service:
     name: ssh
     state: restarted
-  when: env != 'docker'
+  when: not is_container_lab
 
-- name: restart fail2ban
-  service:
+- name: Restart fail2ban
+  ansible.builtin.service:
     name: fail2ban
     state: restarted

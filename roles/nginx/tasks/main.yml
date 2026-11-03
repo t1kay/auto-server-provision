@@ -1,0 +1,62 @@
+---
+# ============================================
+# Role: nginx
+# Applies to: webservers
+# Purpose: Install and configure Nginx, deploy landing page
+# ============================================
+
+- name: Install nginx packages
+  ansible.builtin.apt:
+    name: "{{ nginx_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: packages
+
+- name: Ensure web root exists
+  ansible.builtin.file:
+    path: "{{ nginx_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Deploy landing page
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: "{{ nginx_root }}/index.html"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
+- name: Deploy nginx.conf
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    validate: "nginx -t -c %s"
+  notify: Reload nginx
+
+- name: Ensure nginx is started and enabled
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+
+# Apply a pending reload before checking the new config is live
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify nginx responds on port {{ nginx_port }}
+  ansible.builtin.uri:
+    url: "http://localhost:{{ nginx_port }}"
+    status_code: 200
+  register: nginx_health
+  until: nginx_health.status == 200
+  retries: 5
+  delay: 2
+  when: nginx_verify
+  tags: verify

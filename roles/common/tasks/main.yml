@@ -2,112 +2,57 @@
 # ============================================
 # Role: common
 # Applies to: all hosts
-# Purpose: Base server configuration
+# Purpose: Base system configuration
 # ============================================
 
-# --- Update apt cache ---
 - name: Update apt cache
-  apt:
-    update_cache: yes
+  ansible.builtin.apt:
+    update_cache: true
     cache_valid_time: 3600
   tags: packages
 
-# --- Install common packages ---
 - name: Install common packages
-  apt:
+  ansible.builtin.apt:
     name: "{{ common_packages }}"
     state: present
   tags: packages
 
-# --- Create devops user with sudo ---
-- name: Create devops user with sudo privileges
-  user:
+# --- devops user with passwordless sudo ---
+- name: Create devops user
+  ansible.builtin.user:
     name: "{{ devops_user }}"
     shell: "{{ devops_shell }}"
     groups: sudo
-    append: yes
-    create_home: yes
+    append: true
+    create_home: true
     state: present
   tags: users
 
 - name: Allow devops user passwordless sudo
-  copy:
+  ansible.builtin.copy:
     content: "{{ devops_user }} ALL=(ALL) NOPASSWD:ALL\n"
     dest: "/etc/sudoers.d/{{ devops_user }}"
+    owner: root
+    group: root
     mode: "0440"
     validate: "visudo -cf %s"
   tags: users
 
-# --- Set hostname ---
-- name: Set hostname
-  hostname:
-    name: "{{ inventory_hostname }}"
-  when: env != 'docker'
+# --- System settings (need systemd, skipped in container lab) ---
+- name: Configure hostname, timezone and time sync
+  when: not is_container_lab
   tags: system
+  block:
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
 
-# --- Set timezone ---
-- name: Set timezone to {{ server_timezone }}
-  timezone:
-    name: "{{ server_timezone }}"
-  when: env != 'docker'
-  tags: system
+    - name: Set timezone to {{ server_timezone }}
+      community.general.timezone:
+        name: "{{ server_timezone }}"
 
-# --- Ensure NTP is installed and running ---
-- name: Install and enable systemd-timesyncd
-  systemd:
-    name: systemd-timesyncd
-    state: started
-    enabled: yes
-  when: env != 'docker'
-  tags: system
-
-# --- Deploy nginx config on webservers ---
-- name: Install Nginx web server packages
-  apt:
-    name: "{{ web_packages }}"
-    state: present
-  when: "'webservers' in group_names"
-  tags: web, nginx
-
-- name: Ensure nginx root directory exists
-  file:
-    path: "{{ nginx_root | default('/var/www/html') }}"
-    state: directory
-    owner: www-data
-    group: www-data
-    mode: "0755"
-  when: "'webservers' in group_names"
-  tags: web, nginx
-
-- name: Deploy custom index.html website
-  template:
-    src: index.html.j2
-    dest: "{{ nginx_root | default('/var/www/html') }}/index.html"
-    owner: www-data
-    group: www-data
-    mode: "0644"
-  when: "'webservers' in group_names"
-  tags: web, nginx
-
-- name: Deploy nginx configuration from template
-  template:
-    src: nginx.conf.j2
-    dest: /etc/nginx/nginx.conf
-    owner: root
-    group: root
-    mode: "0644"
-    backup: yes
-    validate: "nginx -t -c %s"
-  when: "'webservers' in group_names"
-  notify:
-    - reload nginx
-  tags: web, nginx
-
-- name: Ensure nginx is started and enabled
-  service:
-    name: nginx
-    state: started
-    enabled: yes
-  when: "'webservers' in group_names"
-  tags: web, nginx
-
+    - name: Ensure systemd-timesyncd is started and enabled
+      ansible.builtin.systemd:
+        name: systemd-timesyncd
+        state: started
+        enabled: true

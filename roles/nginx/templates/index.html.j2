@@ -192,21 +192,21 @@
             <div class="info-grid">
                 <div class="info-item">
                     <span class="info-label">Environment</span>
-                    <span class="info-value env-tag">{{ env | default('dev') }}</span>
+                    <span class="info-value env-tag">{{ env }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Port Configuration</span>
-                    <span class="info-value">{{ nginx_port | default(80) }}</span>
+                    <span class="info-value">{{ nginx_port }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Gzip Compression</span>
-                    <span class="info-value">{{ 'Enabled' if nginx_enable_gzip | default(false) else 'Disabled' }}</span>
+                    <span class="info-value">{{ 'Enabled' if nginx_enable_gzip else 'Disabled' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Rate Limiting</span>
-                    <span class="info-value">{{ 'Enabled' if nginx_enable_rate_limit | default(false) else 'Disabled' }}</span>
+                    <span class="info-value">{{ 'Enabled' if nginx_enable_rate_limit else 'Disabled' }}</span>
                 </div>
-                {% if nginx_upstream_servers | default([]) | length > 0 %}
+                {% if nginx_upstream_servers | length > 0 %}
                 <div class="info-item">
                     <span class="info-label">Upstream Servers</span>
                     <span class="info-value">{{ nginx_upstream_servers | join(', ') }}</span>
