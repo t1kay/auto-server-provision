@@ -1,4 +1,17 @@
-version: '3.8'
+---
+# Local lab: 1 Ansible control node + 2 Ubuntu targets.
+# SSH keys are generated at start-up into the `lab-keys` volume (never committed).
+
+x-node: &node
+  build:
+    context: ./docker
+    dockerfile: Dockerfile.node
+  volumes:
+    - lab-keys:/keys:ro
+  depends_on:
+    - ansible-control
+  networks:
+    - ansible-net
 
 services:
   ansible-control:
@@ -10,32 +23,27 @@ services:
       - ANSIBLE_CONFIG=/workspace/ansible.cfg
     volumes:
       - .:/workspace
+      - lab-keys:/keys
     networks:
       - ansible-net
-    depends_on:
-      - web01
-      - db01
 
   web01:
-    build:
-      context: ./docker
-      dockerfile: Dockerfile.node
+    <<: *node
     container_name: web01
+    hostname: web01
     ports:
-      - "8080:8080" # Map dev Nginx port to host
-      - "2221:22"   # Map SSH port to host for external access if needed
-    networks:
-      - ansible-net
+      - "8080:8080"   # nginx (docker env)
+      - "2221:22"
 
   db01:
-    build:
-      context: ./docker
-      dockerfile: Dockerfile.node
+    <<: *node
     container_name: db01
+    hostname: db01
     ports:
-      - "2222:22"   # Map SSH port to host for external access if needed
-    networks:
-      - ansible-net
+      - "2222:22"
+
+volumes:
+  lab-keys:
 
 networks:
   ansible-net:
