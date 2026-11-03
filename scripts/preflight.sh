@@ -5,11 +5,28 @@
 # that target servers meet minimum requirements
 # ============================================
 # Usage:
-#   bash preflight.sh              (check localhost)
-#   bash preflight.sh <host_ip>    (check remote via SSH)
+#   bash scripts/preflight.sh                  (check this machine)
+#   bash scripts/preflight.sh <user@host> ...  (check remote hosts via SSH)
+# Env overrides: MIN_RAM_MB (default 200), MIN_DISK_GB (default 2), SSH_PORT (default 22)
 # ============================================
 
 set -euo pipefail
+
+# --- Remote mode: stream this script to each host over SSH ---
+if [[ $# -gt 0 ]]; then
+    rc=0
+    for target in "$@"; do
+        echo ">>> ${target}"
+        ssh -o BatchMode=yes "$target" \
+            "MIN_RAM_MB=${MIN_RAM_MB:-200} MIN_DISK_GB=${MIN_DISK_GB:-2} SSH_PORT=${SSH_PORT:-22} bash -s" < "$0" || rc=1
+    done
+    exit "$rc"
+fi
+
+# --- Thresholds ---
+MIN_RAM_MB="${MIN_RAM_MB:-200}"
+MIN_DISK_GB="${MIN_DISK_GB:-2}"
+SSH_PORT="${SSH_PORT:-22}"
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -42,13 +59,13 @@ print_header() {
 
 pass() {
     echo -e "  ${GREEN}✅ PASS${NC} — $1"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 }
 
 fail() {
     echo -e "  ${RED}❌ FAIL${NC} — $1"
     echo -e "         ${YELLOW}↳ $2${NC}"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 }
 
 print_summary() {
@@ -103,10 +120,10 @@ check_ram() {
             AVAILABLE_MB=$(free -m | awk '/^Mem:/ {print $4}')
         fi
 
-        if [ "$AVAILABLE_MB" -ge 200 ]; then
-            pass "Available RAM: ${AVAILABLE_MB}MB (minimum: 200MB)"
+        if [ "$AVAILABLE_MB" -ge "$MIN_RAM_MB" ]; then
+            pass "Available RAM: ${AVAILABLE_MB}MB (minimum: ${MIN_RAM_MB}MB)"
         else
-            fail "Available RAM: ${AVAILABLE_MB}MB (minimum: 200MB)" \
+            fail "Available RAM: ${AVAILABLE_MB}MB (minimum: ${MIN_RAM_MB}MB)" \
                  "Free up memory or add more RAM to this VM"
         fi
     else
@@ -126,10 +143,10 @@ check_disk() {
         # Get available disk in GB on root partition
         AVAILABLE_GB=$(df -BG / | awk 'NR==2 {gsub("G",""); print $4}')
 
-        if [ "$AVAILABLE_GB" -ge 2 ]; then
-            pass "Available disk: ${AVAILABLE_GB}GB (minimum: 2GB)"
+        if [ "$AVAILABLE_GB" -ge "$MIN_DISK_GB" ]; then
+            pass "Available disk: ${AVAILABLE_GB}GB (minimum: ${MIN_DISK_GB}GB)"
         else
-            fail "Available disk: ${AVAILABLE_GB}GB (minimum: 2GB)" \
+            fail "Available disk: ${AVAILABLE_GB}GB (minimum: ${MIN_DISK_GB}GB)" \
                  "Free up disk space: sudo apt autoremove && sudo apt clean"
         fi
     else
@@ -145,12 +162,12 @@ check_ssh() {
     echo ""
     echo -e "${BOLD}[4/5] Checking SSH Service...${NC}"
 
-    if ss -tlnp 2>/dev/null | grep -q ':22 '; then
-        pass "SSH is listening on port 22"
-    elif netstat -tlnp 2>/dev/null | grep -q ':22 '; then
-        pass "SSH is listening on port 22"
+    if ss -tln 2>/dev/null | grep -q ":${SSH_PORT} "; then
+        pass "SSH is listening on port ${SSH_PORT}"
+    elif netstat -tln 2>/dev/null | grep -q ":${SSH_PORT} "; then
+        pass "SSH is listening on port ${SSH_PORT}"
     else
-        fail "SSH is not listening on port 22" \
+        fail "SSH is not listening on port ${SSH_PORT}" \
              "Start SSH: sudo systemctl start sshd"
     fi
 }
@@ -192,4 +209,4 @@ main() {
     exit 0
 }
 
-main "$@"
+main

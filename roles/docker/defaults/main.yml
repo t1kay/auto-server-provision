@@ -1,9 +1,11 @@
 ---
 # ============================================
-# Defaults for Docker Role
+# Role: docker — Default variables
 # ============================================
 
-# Users that should be added to the docker group to run docker without sudo
+is_container_lab: false
+
+# Users added to the docker group (run docker without sudo)
 docker_users:
   - "{{ devops_user | default('devops') }}"
-  - "{{ ansible_user | default('t1kayyyy') }}"
+  - "{{ ansible_user }}"

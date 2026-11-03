@@ -1,60 +1,30 @@
 ---
 # ============================================
-# DEV Environment Variables
-# Overrides defaults for development/testing
+# DEV environment — only values that differ from role defaults
 # ============================================
 
-# --- User Configuration ---
-devops_user: devops
-devops_shell: /bin/bash
-
-# --- System Configuration ---
-server_timezone: Asia/Ho_Chi_Minh
-
-# --- Common packages (installed on ALL nodes) ---
-common_packages:
-  - vim
-  - curl
-  - wget
-  - htop
-  - git
-  - net-tools
-  - unzip
-
-# --- Web server packages (installed on webservers group) ---
-web_packages:
-  - nginx
-
-# --- Environment ---
 env: dev
 
-# --- Nginx (Dev) ---
+# --- Nginx ---
 nginx_port: 8080
-nginx_server_name: "dev.local"
+nginx_server_name: dev.local
 nginx_worker_processes: 1
 nginx_worker_connections: 256
 nginx_enable_gzip: false
-nginx_enable_rate_limit: false
-nginx_enable_ssl: false
 nginx_custom_headers:
-  - "X-Environment: development"
-  - "X-Debug-Mode: enabled"
-
-# --- Nginx Upstream (Dev — single backend) ---
+  - { name: X-Environment, value: development }
+  - { name: X-Debug-Mode, value: enabled }
 nginx_upstream_servers:
-  - "127.0.0.1:3000"
+  - 127.0.0.1:3000
 
-# --- UFW Firewall (Dev) ---
+# --- Firewall (SSH is always allowed) ---
 ufw_allowed_ports:
-  - { port: "22", proto: "tcp", comment: "SSH" }
-  - { port: "8080", proto: "tcp", comment: "HTTP (Dev)" }
+  - { port: 8080, proto: tcp, comment: HTTP (dev) }
 
-# --- SSH (Dev — less strict for easier debugging) ---
-ssh_permit_root_login: "no"
+# --- SSH: relaxed for easier debugging ---
 ssh_password_authentication: "yes"
 ssh_max_auth_tries: 6
 
-# --- Fail2ban (Dev — lenient) ---
+# --- Fail2ban: lenient ---
 fail2ban_maxretry: 10
 fail2ban_bantime: 600
-fail2ban_findtime: 600

@@ -1,0 +1,32 @@
+---
+# ============================================
+# Role: nginx — Default variables
+# Override these in inventories/<env>/group_vars
+# ============================================
+
+# Environment name shown on the landing page / config header
+env: unknown
+
+nginx_packages:
+  - nginx
+
+# --- Server ---
+nginx_port: 80
+nginx_server_name: "_"
+nginx_root: /var/www/html
+nginx_worker_processes: auto
+nginx_worker_connections: 768
+
+# --- Features ---
+nginx_enable_gzip: true
+nginx_enable_rate_limit: false
+nginx_enable_ssl: false
+
+# --- Extra response headers: list of {name, value} ---
+nginx_custom_headers: []
+
+# --- Upstream backends for /api/ (host:port) ---
+nginx_upstream_servers: []
+
+# --- Post-deploy health check ---
+nginx_verify: true

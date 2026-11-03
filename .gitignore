@@ -1,0 +1,20 @@
+# Secrets / keys — never commit
+*.pem
+id_rsa*
+id_ed25519*
+docker/ssh/
+.vault_pass*
+
+# Ansible
+*.retry
+collections/
+
+# Python / tooling
+__pycache__/
+.venv/
+.cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

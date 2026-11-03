@@ -2,16 +2,16 @@
 # ============================================
 # Nginx Server Configuration
 # Managed by Ansible — DO NOT EDIT MANUALLY
-# Environment: {{ env | default('unknown') }}
+# Environment: {{ env }}
 # ============================================
 
 # --- Worker Processes ---
-worker_processes {{ nginx_worker_processes | default('auto') }};
+worker_processes {{ nginx_worker_processes }};
 pid /run/nginx.pid;
 include /etc/nginx/modules-enabled/*.conf;
 
 events {
-    worker_connections {{ nginx_worker_connections | default(768) }};
+    worker_connections {{ nginx_worker_connections }};
 }
 
 http {
@@ -28,7 +28,7 @@ http {
     access_log /var/log/nginx/access.log;
     error_log /var/log/nginx/error.log;
 
-{% if nginx_enable_gzip | default(false) %}
+{% if nginx_enable_gzip %}
     # --- Gzip Compression (Enabled) ---
     gzip on;
     gzip_vary on;
@@ -50,13 +50,13 @@ http {
     gzip off;
 {% endif %}
 
-{% if nginx_enable_rate_limit | default(false) %}
+{% if nginx_enable_rate_limit %}
     # --- Rate Limiting ---
     limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
     limit_req_zone $binary_remote_addr zone=login:10m rate=1r/s;
 {% endif %}
 
-{% if nginx_upstream_servers | default([]) | length > 0 %}
+{% if nginx_upstream_servers | length > 0 %}
     # --- Upstream Backend Servers ---
     upstream app_backend {
 {% for server in nginx_upstream_servers %}
@@ -67,17 +67,17 @@ http {
 
     # --- Virtual Host ---
     server {
-        listen {{ nginx_port | default(80) }};
-        server_name {{ nginx_server_name | default('_') }};
+        listen {{ nginx_port }};
+        server_name {{ nginx_server_name }};
 
-        root {{ nginx_root | default('/var/www/html') }};
+        root {{ nginx_root }};
         index index.html index.htm;
 
         # --- Per-host Logging ---
         access_log /var/log/nginx/{{ inventory_hostname }}_access.log;
         error_log  /var/log/nginx/{{ inventory_hostname }}_error.log;
 
-{% if nginx_enable_rate_limit | default(false) %}
+{% if nginx_enable_rate_limit %}
         # --- Apply Rate Limiting ---
         limit_req zone=general burst=20 nodelay;
 {% endif %}
@@ -87,7 +87,7 @@ http {
             try_files $uri $uri/ =404;
         }
 
-{% if nginx_upstream_servers | default([]) | length > 0 %}
+{% if nginx_upstream_servers | length > 0 %}
         # --- Proxy to Backend ---
         location /api/ {
             proxy_pass http://app_backend;
@@ -101,14 +101,13 @@ http {
         # --- Security Headers ---
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
-        add_header X-XSS-Protection "1; mode=block" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-{% if nginx_enable_ssl | default(false) %}
+{% if nginx_enable_ssl %}
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 {% endif %}
 
-{% for header in nginx_custom_headers | default([]) %}
-        add_header {{ header.split(':')[0] | trim }} "{{ header.split(':')[1] | trim }}" always;
+{% for header in nginx_custom_headers %}
+        add_header {{ header.name }} "{{ header.value }}" always;
 {% endfor %}
     }
 }

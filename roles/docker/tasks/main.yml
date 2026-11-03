@@ -1,51 +1,40 @@
 ---
 # ============================================
 # Role: docker
-# Purpose: Installs Docker and Docker Compose
+# Applies to: all hosts
+# Purpose: Install Docker Engine + Compose plugin
 # ============================================
 
-# --- Install prerequisite packages ---
 - name: Install Docker prerequisites
-  apt:
+  ansible.builtin.apt:
     name:
-      - apt-transport-https
       - ca-certificates
       - curl
       - gnupg
-      - lsb-release
+      - python3-debian   # required by deb822_repository
     state: present
-    update_cache: yes
-  tags: docker, packages
+    update_cache: true
+    cache_valid_time: 3600
+  tags: packages
 
-# --- Create keyrings directory ---
-- name: Ensure /etc/apt/keyrings directory exists
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: "0755"
-  tags: docker
+# Old installs used a one-line docker.list; it conflicts with the deb822 source
+- name: Remove legacy Docker apt source
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
 
-# --- Add Docker's official GPG key ---
-- name: Add Docker's official GPG key
-  get_url:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    dest: /etc/apt/keyrings/docker.asc
-    mode: "0644"
-    force: yes
-  tags: docker
+- name: Add Docker apt repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/ubuntu
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: stable
+    architectures: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}"
+    signed_by: https://download.docker.com/linux/ubuntu/gpg
 
-# --- Set up Docker stable repository ---
-- name: Set up Docker repository
-  apt_repository:
-    repo: "deb [arch={{ ansible_architecture | default('amd64') | replace('x86_64', 'amd64') }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-    state: present
-    filename: docker
-    update_cache: yes
-  tags: docker
-
-# --- Install Docker Engine and Compose plugin ---
 - name: Install Docker Engine and plugins
-  apt:
+  ansible.builtin.apt:
     name:
       - docker-ce
       - docker-ce-cli
@@ -53,30 +42,20 @@
       - docker-buildx-plugin
       - docker-compose-plugin
     state: present
-  tags: docker, packages
+    update_cache: true
+  tags: packages
 
-# --- Start and enable Docker service ---
+# No systemd inside the container lab, so the daemon is not managed there
 - name: Ensure Docker service is started and enabled
-  service:
+  ansible.builtin.service:
     name: docker
     state: started
-    enabled: yes
-  when: env != 'docker'
-  tags: docker
+    enabled: true
+  when: not is_container_lab
 
-# --- Create docker group ---
-- name: Ensure docker group exists
-  group:
-    name: docker
-    state: present
-  tags: docker
-
-# --- Add users to docker group ---
-- name: Add configured users to docker group
-  user:
+- name: Add users to docker group
+  ansible.builtin.user:
     name: "{{ item }}"
     groups: docker
-    append: yes
-  loop: "{{ docker_users }}"
-  when: item is defined and item | length > 0
-  tags: docker
+    append: true
+  loop: "{{ docker_users | select | list }}"

@@ -1,23 +1,26 @@
 ---
 # ============================================
 # Role: common — Default variables
-# Override these in group_vars or host_vars
+# Override these in inventories/<env>/group_vars
 # ============================================
 
-# --- Nginx Configuration ---
-nginx_port: 80
-nginx_server_name: "_"
-nginx_root: "/var/www/html"
-nginx_worker_processes: "auto"
-nginx_worker_connections: 768
+# Set to true when targets are containers (Docker lab): skips tasks that
+# need systemd / kernel privileges (hostname, timezone, service restarts).
+is_container_lab: false
 
-# --- Nginx Features ---
-nginx_enable_gzip: true
-nginx_enable_rate_limit: false
-nginx_enable_ssl: false
+# --- User Configuration ---
+devops_user: devops
+devops_shell: /bin/bash
 
-# --- Nginx Custom Headers ---
-nginx_custom_headers: []
+# --- System Configuration ---
+server_timezone: Asia/Ho_Chi_Minh
 
-# --- Nginx Upstream ---
-nginx_upstream_servers: []
+# --- Packages installed on ALL nodes ---
+common_packages:
+  - vim
+  - curl
+  - wget
+  - htop
+  - git
+  - net-tools
+  - unzip
