@@ -1,0 +1,10 @@
+---
+profile: production
+exclude_paths:
+  - .github/
+  - collections/
+skip_list:
+  # Variable names (ssh_port, nginx_port, fail2ban_*, ...) are shared across
+  # roles and inventories on purpose; prefixing them with the role name would
+  # make the env group_vars harder to read.
+  - var-naming[no-role-prefix]
