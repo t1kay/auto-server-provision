@@ -143,10 +143,20 @@ auto-server-provision/
 
 ## 📦 Yêu cầu
 
-### Phần mềm trên Windows
+Chọn **một** trong hai cách chạy:
+
+### Cách 1 — Docker Lab (nhanh, không cần VM)
+- [Git](https://git-scm.com/downloads)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) hoặc Docker Engine + Compose plugin (Linux)
+- Port **8080**, **2221**, **2222** trên máy host còn trống
+- **Không cần** cài Ansible trên máy host — container `ansible-control` đã có sẵn
+
+👉 Làm theo phần [Chạy trên Docker Lab](#chạy-trên-docker-lab-giả-lập-cục-bộ), bỏ qua phần *Hướng dẫn cài đặt* (dành cho VM).
+
+### Cách 2 — VM Lab (VMware, đầy đủ UFW/fail2ban/hostname/timezone)
 - [VMware Workstation Pro](https://www.vmware.com/) (free từ 2024)
 
-### VM Specifications
+#### VM Specifications
 
 | VM | Role | IP | RAM |
 |---|---|---|---|
@@ -157,11 +167,16 @@ auto-server-provision/
 - **OS:** Ubuntu Server 22.04 LTS
 - **Network:** VMnet Host-only (192.168.209.0/24)
 - **Ansible:** ansible-core 2.15+ (cài qua pip, xem bên dưới — bản `apt install ansible` của Ubuntu 22.04 là 2.10, **quá cũ**, role `docker` sẽ lỗi)
-- **Python:** 3.9+ trên control node (Ubuntu 22.04 có sẵn 3.10)
+- **Python:** 3.10+ trên control node (Ubuntu 22.04 có sẵn 3.10), Python 3 trên managed nodes
 
 ---
 
 ## 🔧 Hướng dẫn cài đặt
+
+> Phần này dành cho **VM Lab**. Dùng Docker Lab thì chuyển thẳng tới [Chạy trên Docker Lab](#chạy-trên-docker-lab-giả-lập-cục-bộ).
+
+> [!IMPORTANT]
+> Các lệnh dưới đây dùng user `t1kayyyy` và IP `192.168.209.x`. Nếu VM của bạn dùng user/IP khác, thay trong lệnh **và** sửa `ansible_user` / `ansible_host` trong `inventories/dev/hosts.ini` (và `prod/hosts.ini`).
 
 ### 1. Chuẩn bị VM
 
@@ -265,14 +280,26 @@ ansible-playbook -i inventories/dev/hosts.ini playbooks/site.yml
 ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml
 ```
 
+> [!WARNING]
+> `inventories/prod/hosts.ini` hiện trỏ tới **cùng IP với dev** (để demo trên lab). Sửa IP/user thành server prod thật trước khi chạy. Prod tắt SSH password auth — đảm bảo đã đăng nhập được bằng SSH key, nếu không sẽ tự khoá mình.
+
 ### Chạy trên Docker Lab (Giả lập cục bộ)
 
-Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án hoàn chỉnh trên Docker bằng Docker Compose (yêu cầu máy host đã cài đặt **Docker Desktop**):
+Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án hoàn chỉnh trên Docker bằng Docker Compose (yêu cầu máy host đã cài **Git** và **Docker Desktop** đang chạy). Mọi lệnh đều chạy từ **một terminal** trên máy host, tại thư mục project.
+
+0. **Clone project** (Compose build image và mount code từ thư mục này):
+   ```bash
+   git clone https://github.com/t1kay/auto-server-provision.git
+   cd auto-server-provision
+   ```
 
 1. **Khởi động cụm Lab (Docker containers)**:
    ```bash
    docker compose up -d --build
+   docker compose ps          # 3 container phải ở trạng thái Up
    ```
+   Lần đầu mất vài phút (tải image Ubuntu, cài Ansible). Đã build từ bản cũ thì build lại: `docker compose build --no-cache`.
+
    Lệnh này sẽ khởi động 3 container kết nối chung mạng nội bộ `ansible-net`:
    - `ansible-control`: Node điều khiển (cài sẵn Ansible, mount mã nguồn dự án). Khi khởi động lần đầu, container tự sinh SSH key pair vào volume `lab-keys`.
    - `web01`: Target node giả lập webserver (Ubuntu SSH) — đọc public key từ volume `lab-keys` rồi khởi động sshd.
@@ -290,8 +317,12 @@ Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án 
    ```
    *(Để chỉ test cài đặt Docker, thêm `--tags docker`)*
 
+   Lần đầu mất vài phút (cài Docker Engine lên node). Xem `PLAY RECAP` cuối output: phải là `failed=0`. Chạy lại lần 2 phải ra `changed=0` (idempotency).
+
    > [!NOTE]
    > Trong môi trường Docker container, các tác vụ liên quan đến hệ thống (như thay đổi Hostname, cài đặt Timezone, đồng bộ NTP) và bảo mật (như kích hoạt UFW Firewall, chạy Fail2ban) sẽ được tự động bỏ qua để tránh lỗi phân quyền kernel đặc quyền của Docker Desktop.
+   >
+   > Container không có systemd: sau khi container **khởi động lại** (restart Docker Desktop, `docker compose restart`...) chỉ có sshd chạy — nginx sẽ không tự bật lại. Chạy lại playbook (bước 3) là xong. Tương tự, Docker Engine được cài nhưng daemon không chạy trong lab, và cấu hình SSH hardening chỉ có hiệu lực từ lần container khởi động lại.
 
 4. **Kiểm tra kết quả**:
    - Truy cập trang Nginx trực tiếp từ máy host (Windows/Mac) qua port forward: [http://localhost:8080](http://localhost:8080)
@@ -320,7 +351,7 @@ Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án 
 | Fail2ban ban time | 10 min | 24 hours | ❌ Bỏ qua (Skipped) |
 | Upstream servers | 1 | 2 (HA) | 1 |
 | UFW Firewall | ✅ Bật | ✅ Bật | ❌ Bỏ qua (Skipped) |
-| Docker Engine | ✅ Cài | ✅ Cài | ✅ Cài (daemon không được quản lý bởi systemd) |
+| Docker Engine | ✅ Cài + chạy | ✅ Cài + chạy | ⚠️ Chỉ cài package (daemon không chạy — không có systemd) |
 
 
 ### Dry Run (Check Mode)
@@ -351,6 +382,10 @@ ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml --check --diff
 | Biến | Giá trị mặc định | Mô tả |
 |------|-------------------|-------|
 | `nginx_port` | `80` | Port nginx listen |
+| `nginx_server_name` | `_` | `server_name` (mặc định nhận mọi host) |
+| `nginx_root` | `/var/www/html` | Thư mục web root |
+| `nginx_worker_processes` | `auto` | Số worker process |
+| `nginx_worker_connections` | `768` | Số connection mỗi worker |
 | `nginx_enable_gzip` | `true` | Bật gzip compression |
 | `nginx_enable_rate_limit` | `false` | Bật rate limiting |
 | `nginx_upstream_servers` | `[]` | Backend cho `/api/` (`host:port`) |
@@ -364,9 +399,13 @@ ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml --check --diff
 | `ssh_port` | `22` | SSH port |
 | `ssh_permit_root_login` | `no` | Disable root SSH login |
 | `ssh_password_authentication` | `no` | Disable password auth |
+| `ssh_max_auth_tries` | `3` | Số lần thử đăng nhập tối đa mỗi kết nối |
 | `ufw_default_incoming` | `deny` | UFW default policy |
 | `ufw_allowed_ports` | `[80/tcp]` | Port mở thêm (SSH luôn được mở theo `ssh_port`) |
 | `fail2ban_maxretry` | `5` | Max SSH failures before ban |
+| `fail2ban_bantime` | `3600` | Thời gian ban (giây) |
+| `fail2ban_findtime` | `600` | Cửa sổ đếm số lần thất bại (giây) |
+| `skip_ssh_hardening` / `skip_firewall` / `skip_fail2ban` | `false` | Bỏ qua từng phần (Docker Lab bật `skip_firewall`, `skip_fail2ban`) |
 
 ---
 
@@ -381,7 +420,7 @@ ansible-playbook -i inventories/<env>/hosts.ini playbooks/site.yml --syntax-chec
 shellcheck scripts/*.sh docker/*.sh
 ```
 
-Chạy local: `pip install ansible-core ansible-lint yamllint` rồi chạy các lệnh trên.
+Chạy local: `pip install ansible-core ansible-lint yamllint`, `ansible-galaxy collection install -r requirements.yml` (cần cho syntax-check), cài [shellcheck](https://github.com/koalaman/shellcheck#installing) rồi chạy các lệnh trên.
 
 > [!WARNING]
 > Các phiên bản cũ của repo từng commit SSH private key của Docker Lab (`docker/ssh/id_rsa`). Key đó vẫn còn trong git history — coi như đã lộ và **không dùng nó cho bất kỳ server thật nào**. Từ bản này, key được sinh tự động khi chạy lab.
@@ -430,6 +469,9 @@ Chạy local: `pip install ansible-core ansible-lint yamllint` rồi chạy các
 | `--check` báo lỗi ở task Docker trên server mới | Bình thường — xem ghi chú ở phần Dry Run. Chạy thật một lần trước. |
 | `curl` VM không trả về trang | Dev/Docker dùng port **8080**, prod dùng **80**. |
 | Docker Lab: `No package matching 'vim'` | Image node cũ (build trước bản sửa). Build lại: `docker compose build --no-cache` rồi `docker compose up -d`. |
+| Docker Lab: `curl web01:8080` báo `Connection refused` | Nginx chưa chạy: playbook chưa chạy xong (xem `PLAY RECAP`) hoặc container vừa khởi động lại. Chạy lại playbook. |
+| Docker Lab: preflight báo `Permission denied (publickey)` | Node chưa nhận key — đợi ~10 giây sau `up` rồi thử lại; vẫn lỗi thì `docker compose down -v` rồi `up -d` lại. |
+| Docker Lab: `Cannot connect to the Docker daemon` | Docker Desktop chưa mở / chưa chạy xong. |
 | Docker Lab: port 8080/2221/2222 đã bị dùng | Tắt chương trình đang chiếm port, hoặc đổi `ports` trong `docker-compose.yml`. |
 
 ---
