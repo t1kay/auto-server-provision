@@ -1,6 +1,6 @@
 # 🚀 Automated Linux Server Provisioning
 
-[![Ansible](https://img.shields.io/badge/Ansible-2.10+-EE0000?logo=ansible&logoColor=white)](https://www.ansible.com/)
+[![Ansible](https://img.shields.io/badge/ansible--core-2.15+-EE0000?logo=ansible&logoColor=white)](https://www.ansible.com/)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04_LTS-E95420?logo=ubuntu&logoColor=white)](https://ubuntu.com/)
 [![Bash](https://img.shields.io/badge/Bash-5.0+-4EAA25?logo=gnubash&logoColor=white)](https://www.gnu.org/software/bash/)
 [![CI](https://github.com/t1kay/auto-server-provision/actions/workflows/ci.yml/badge.svg)](https://github.com/t1kay/auto-server-provision/actions/workflows/ci.yml)
@@ -47,7 +47,7 @@ Giả lập đầy đủ hệ điều hành và các lớp bảo mật mạng (U
 │  │  ubuntu-control  │────────▶│  web01 (webserver)        │  │
 │  │  192.168.209.10  │         │  192.168.209.11           │  │
 │  │                  │         │  • nginx                  │  │
-│  │  • Ansible 2.10+ │         │  • UFW firewall           │  │
+│  │  • Ansible 2.15+ │         │  • UFW firewall           │  │
 │  │  • Python 3      │   SSH   │  • fail2ban               │  │
 │  │  • Git           │────────▶│  • SSH hardened            │  │
 │  │                  │         ├──────────────────────────┤  │
@@ -156,8 +156,8 @@ auto-server-provision/
 
 - **OS:** Ubuntu Server 22.04 LTS
 - **Network:** VMnet Host-only (192.168.209.0/24)
-- **Ansible:** 2.10+
-- **Python:** 3.8+
+- **Ansible:** ansible-core 2.15+ (cài qua pip, xem bên dưới — bản `apt install ansible` của Ubuntu 22.04 là 2.10, **quá cũ**, role `docker` sẽ lỗi)
+- **Python:** 3.9+ trên control node (Ubuntu 22.04 có sẵn 3.10)
 
 ---
 
@@ -166,9 +166,12 @@ auto-server-provision/
 ### 1. Chuẩn bị VM
 
 ```bash
-# Trên ubuntu-control — cài Ansible
+# Trên ubuntu-control — cài Ansible (pin cùng version với Docker Lab)
 sudo apt update
-sudo apt install -y ansible git python3
+sudo apt install -y git python3 python3-pip
+python3 -m pip install --user "ansible==10.7.0"   # ansible-core 2.17, kèm community.general
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+ansible --version
 
 # Tạo SSH key và copy sang managed nodes
 ssh-keygen -t ed25519 -C "ansible"
@@ -216,14 +219,14 @@ ansible-galaxy collection install -r requirements.yml
 # Bước 1: Kiểm tra server (preflight check) — chạy remote qua SSH
 bash scripts/preflight.sh t1kayyyy@192.168.209.11 t1kayyyy@192.168.209.21
 
-# Bước 2: Chạy playbook (dry run trước)
-ansible-playbook playbooks/site.yml --check --diff
-
-# Bước 3: Chạy playbook thực tế
+# Bước 2: Chạy playbook
 ansible-playbook playbooks/site.yml
 
-# Bước 4: Verify nginx
-curl http://192.168.209.11
+# Bước 3: Verify nginx (inventory mặc định là dev → port 8080)
+curl http://192.168.209.11:8080
+
+# Từ lần chạy sau: dry run trước khi apply thay đổi
+ansible-playbook playbooks/site.yml --check --diff
 ```
 
 ### Chạy theo tag
@@ -327,6 +330,9 @@ Nếu không sử dụng VMware, bạn có thể chạy thử nghiệm dự án 
 ansible-playbook -i inventories/prod/hosts.ini playbooks/site.yml --check --diff
 ```
 
+> [!NOTE]
+> Check mode chỉ dùng được **sau lần chạy thật đầu tiên**. Trên server mới, check mode không thực sự thêm apt repo của Docker hay tạo group `docker`, nên các task phía sau sẽ báo lỗi dù lần chạy thật không sao.
+
 ---
 
 ## ⚙️ Biến cấu hình
@@ -414,6 +420,19 @@ Chạy local: `pip install ansible-core ansible-lint yamllint` rồi chạy các
 
 ---
 
+## 🛠 Troubleshooting
+
+| Triệu chứng | Nguyên nhân / cách xử lý |
+|---|---|
+| `couldn't resolve module/action 'ansible.builtin.deb822_repository'` | Ansible quá cũ (thường do `apt install ansible`). Cài lại bằng pip như phần [Hướng dẫn cài đặt](#-hướng-dẫn-cài-đặt). |
+| `UNREACHABLE` / `Permission denied (publickey)` | Chưa `ssh-copy-id` sang node, hoặc sai `ansible_user` trong `inventories/<env>/hosts.ini`. |
+| `Missing sudo password` | Chưa cấu hình passwordless sudo (bước 3 phần cài đặt). |
+| `--check` báo lỗi ở task Docker trên server mới | Bình thường — xem ghi chú ở phần Dry Run. Chạy thật một lần trước. |
+| `curl` VM không trả về trang | Dev/Docker dùng port **8080**, prod dùng **80**. |
+| Docker Lab: `No package matching 'vim'` | Image node cũ (build trước bản sửa). Build lại: `docker compose build --no-cache` rồi `docker compose up -d`. |
+| Docker Lab: port 8080/2221/2222 đã bị dùng | Tắt chương trình đang chiếm port, hoặc đổi `ports` trong `docker-compose.yml`. |
+
+---
 
 ## 📝 License
 

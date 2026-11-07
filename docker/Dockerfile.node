@@ -11,8 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         iproute2 \
         curl \
-    && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/run/sshd
+# Keep /var/lib/apt/lists: deleting it bumps the directory mtime, so Ansible's
+# `cache_valid_time` treats the (now empty) cache as fresh and skips
+# `apt update`, making the first playbook run fail with "No package matching".
+
 
 # Ansible user with passwordless sudo
 RUN useradd -m -s /bin/bash -G sudo "${LAB_USER}" \
